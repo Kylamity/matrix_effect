@@ -14,13 +14,13 @@ renderer: object = Renderer(
 grid: object = Grid(
     canvas_width = IMAGE_WIDTH,
     canvas_height = IMAGE_HEIGHT,
-    column_spacing = SPACING_X,
-    row_spacing = SPACING_Y
+    column_spacing = GRID_COLUMN_SPACING,
+    row_spacing = GRID_ROW_SPACING
 )
 segmentHandler: object = SegmentHandler(
     grid_object = grid,
-    typical_separation = SEGMENT_SEPARATION,
-    segment_separation_deviation = SEGMENT_SEPARATION_DEVIATION
+    min_separation = SEGMENT_SEPARATION_MIN,
+    max_separation = SEGMENT_SEPARATION_MAX
 )
 
 
@@ -39,21 +39,31 @@ def render_segments():
 
 
 def main():
-    timestamp = time.time()
-    print("Processing...")
+    if PRE_ITERATE:
+        timestamp = time.time()
+        print(f"Processing {PRE_ITERATE} pre-iterations...")
+        for pre_iteration in range(PRE_ITERATE):
+            segmentHandler.iterate()
 
-    for iteration in range(STOP_ITERATION + SKIP_ITERATIONS):
-        iteration_actual = iteration - SKIP_ITERATIONS
+        duration = round(time.time() - timestamp, 1)
+        print(f"Completed in {duration} sec")
+
+    timestamp = time.time()
+    if SAVE_ALL:
+        print(f"Processing {OUTPUT_ITERATIONS} output iterations...")
+    else:
+        print(f"Processing to output iteration {OUTPUT_ITERATIONS}")
+    for output_iteration in range(OUTPUT_ITERATIONS):
+        iteration_actual = output_iteration + 1
         segmentHandler.iterate()
-        if SAVE_ALL or STOP_ITERATION == iteration_actual:
-            if iteration > SKIP_ITERATIONS:
-                render_segments()
-                renderer.save_image(f'{IMAGE_NAME}_{iteration_actual}_{IMAGE_WIDTH}x{IMAGE_HEIGHT}')
-                renderer.new_image()
-                print(f"Iteration {iteration_actual} saved")
+        if SAVE_ALL or iteration_actual == OUTPUT_ITERATIONS:
+            render_segments()
+            renderer.save_image(f'{IMAGE_NAME}_{iteration_actual}_{IMAGE_WIDTH}x{IMAGE_HEIGHT}')
+            renderer.new_image()
+            print(f"Iteration {iteration_actual} saved")
 
     duration = round(time.time() - timestamp, 1)
-    print(f"\nCompleted in {duration} sec, Exiting.")
+    print(f"Completed in {duration} sec, Exiting.")
 
 
 if __name__ == '__main__':

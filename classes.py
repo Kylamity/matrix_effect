@@ -5,30 +5,17 @@ from PIL import ImageFont, Image, ImageDraw
 from config import *
 
 
-VERBOSE_MODE = False
-def verbose_message(string):
-    if VERBOSE_MODE:
-        print(f'[VERBOSE]{string}')
-
-
 def define_segment():
         segment: object = CharacterSegment(
             seed_string = SEED_STRING,
             randomize_string = RANDOMIZE_STRING,
             transition_length = TRANSITION_LENGTH,
-            typical_length = SEGMENT_LENGTH,
-            length_deviation = SEGMENT_LENGTH_DEVIATION,
+            min_length = SEGMENT_LENGTH_MIN,
+            max_length = SEGMENT_LENGTH_MAX,
             primary_color = BASE_COLOR,
             secondary_color = ACCENT_COLOR
         )
         return segment
-
-
-def calc_random(typical_value, deviation_value):
-    # return random int from range using typical and delta values
-    min_value = typical_value - deviation_value
-    max_value = typical_value + deviation_value
-    return random.randint(min_value, max_value)
 
 
 #-------------------------------------------------------------------------------------------------------
@@ -52,18 +39,18 @@ class Grid:
 
 #-------------------------------------------------------------------------------------------------------
 class CharacterSegment:
-    def __init__(self, seed_string: str, randomize_string: bool, transition_length: int, typical_length: int, length_deviation: int, primary_color: list, secondary_color: list):
+    def __init__(self, seed_string: str, randomize_string: bool, transition_length: int, min_length: int, max_length: int, primary_color: list, secondary_color: list):
         self.seed_string = seed_string # character types segment can contain
         self.randomize_string = randomize_string # if new_character() will randomize seed string
         self.transition_length = transition_length # number of transitionally colored characters
         self.color_a = primary_color # leading character color
         self.color_b = secondary_color # body characters color
-        self.length = calc_random(typical_length, length_deviation) # total simultaneous characters allowed in segment
+        self.length = random.randint(min_length, max_length) # total simultaneous characters allowed in segment
         self.column_id: int = None # column number of leading character
         self.row_id: int = None # row number of leading character
         self.characters: str = [] # characters segment currently contains ([0] = oldest character)
         self.character_colors: str = [] # colors of characters in characters list
-        self.seed_character_index = 0 # tracks current position in seed_string when not randomized
+        self.seed_character_index = 0 # tracks current position in seed_string when seed not randomized
         self.set_colors()
 
     def new_character(self):
@@ -88,7 +75,7 @@ class CharacterSegment:
         # re-populate with transitional colors at either end of list
         # track the transitional rgb starting with the first color to be set on either end of list / stack
         rgb_bottom = [self.color_b[0], self.color_b[1], self.color_b[2]] # had issues here when passing config list 1:1
-        rgb_top = [0, 0, 0] # should be set background color
+        rgb_top = [BACKGROUND_COLOR[0], BACKGROUND_COLOR[1], BACKGROUND_COLOR[2]]  # should be set background color
         # loop for number of transitional characters defined in config
         for character in range(self.transition_length):
             character_inv = (character + 1) * -1 # +1 and invert for colors list top down index
@@ -99,7 +86,7 @@ class CharacterSegment:
                 change_delta_bottom = round(value_delta_bottom / self.transition_length)
                 rgb_bottom[value] = rgb_bottom[value] + change_delta_bottom
                 # top of stack down
-                value_delta_top = self.color_a[value] - 0 # should be set background color
+                value_delta_top = self.color_a[value] - BACKGROUND_COLOR[value] # should be set background color
                 change_delta_top = round(value_delta_top / self.transition_length)
                 rgb_top[value] = rgb_top[value] + change_delta_top
             # set the character color list items to the new rgb values
@@ -108,10 +95,10 @@ class CharacterSegment:
 
 #-------------------------------------------------------------------------------------------------------
 class Renderer:
-    def __init__(self, image_width: int, image_height: int, font_face: str, font_size: int, background_color: str):
+    def __init__(self, image_width: int, image_height: int, font_face: str, font_size: int, background_color: list):
         self.image_width = image_width # output image canvas width
         self.image_height = image_height # output image canvas height
-        self.bg_color = background_color # output image background fill color
+        self.bg_color = (background_color[0], background_color[1], background_color[2], ) # output image background fill color (rgb)
         self.font: object = ImageFont.truetype(font_face, font_size) # stores font data
         self.image: object = None # stores image data
         self.draw: object = None
@@ -134,20 +121,21 @@ class Renderer:
 
 #-------------------------------------------------------------------------------------------------------
 class SegmentHandler:
-    def __init__(self, grid_object: object, typical_separation: int, segment_separation_deviation: int):
+    def __init__(self, grid_object: object, min_separation: int, max_separation: int):
         self.grid = grid_object
         self.segment_pool: object = []
         self.column_spawn_states: bool = []
-        self.typical_separation = typical_separation
-        self.separation_deviation = segment_separation_deviation
+        self.min_separation = min_separation
+        self.max_separation = max_separation
         self.column_speeds: int = []
         self.init_spawn_states()
-        self.set_coulmn_speeds()
+        self.set_column_speeds()
 
-    def set_coulmn_speeds(self):
+    def set_column_speeds(self):
+        # loop for columns in grid
         for column in range(self.grid.total_columns):
             # set 3 speed levels from random range 1-3
-            self.column_speeds.append(calc_random(2, 1))
+            self.column_speeds.append(random.randint(1, 3))
 
     def init_spawn_states(self):
         # for each column, add an item to list with value True
@@ -174,24 +162,24 @@ class SegmentHandler:
                 self.column_spawn_states[column_id] = False
 
     def spawn_segments(self):
-        # cycle through columns, if spawn state is true create new segment and add it to pool
+        # loop for columns in grid, if spawn state is true create new segment and add it to pool
         for column in range(self.grid.total_columns):
             if self.column_spawn_states[column] is True:
                 new_segment = define_segment()
                 new_segment.column_id = column
                 new_segment.row_id = -1 # cycle_segments will +1 before image output
-                new_segment.separation = calc_random(self.typical_separation, self.separation_deviation)
+                new_segment.separation = random.randint(self.min_separation, self.max_separation)
                 self.segment_pool.append(new_segment)
 
     def cycle_segments(self):
-        # for all segments in pool, call new character and move segment row id + 1
+        # loop for segments in pool, call new character and move segment row id + 1
         for segment in range(len(self.segment_pool)):
             for cycle in range(self.column_speeds[self.segment_pool[segment].column_id]):
                 self.segment_pool[segment].new_character()
                 self.segment_pool[segment].row_id += 1
 
     def cleanup_segments(self):
-        # for all segments in pool, if lead character row + length > total grid rows, remove from pool
+        # for segments in pool, if lead character row + length > total grid rows, remove from pool
         for segment in range(len(self.segment_pool)):
             if (self.grid.total_rows - self.segment_pool[segment].length) > self.grid.total_rows:
                 self.segment_pool.pop(segment)

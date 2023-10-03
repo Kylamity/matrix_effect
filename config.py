@@ -1,26 +1,27 @@
 # config.py
 
 # Image
-IMAGE_NAME = "image" # output file name "[IMAGE_NAME]_[IMAGE_WIDTH]x[IMAGE_HEIGHT]
-IMAGE_WIDTH = 2560
-IMAGE_HEIGHT = 1440
-BACKGROUND_COLOR = 'black'
-SKIP_ITERATIONS = 2500 # disable image output for this many iterations
-STOP_ITERATION = 500 # total iterations that will be output
-SAVE_ALL = True # if true, only the final iteration will be saved
-OUTPUT_DIR = "output"
+IMAGE_NAME = "image" # prefixes output file name
+IMAGE_WIDTH = 1920
+IMAGE_HEIGHT = 1080
+BACKGROUND_COLOR = [255, 255, 255] # [R, G, B] 0 - 255
+PRE_ITERATE = 500 # will iterate for this value before beginning output iterations
+OUTPUT_ITERATIONS = 500 # total output images / iterations that will be saved
+SAVE_ALL = False # if true, only the final output iteration will be saved
+OUTPUT_DIR = "output" # supports relative path, path must exist
 
 # Character Segments
 SEED_STRING = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%&*()=+[]{};:<>/?"
-RANDOMIZE_STRING = True # if true, segments will ignore seed string order
-BASE_COLOR = [0, 166, 255] # [R, G, B] 0 - 255
-ACCENT_COLOR = [255, 255, 255] # [R, G, B] 0 - 255
+RANDOMIZE_STRING = True # if true, segments will ignore seed string order, currently only working in True state***********
+BASE_COLOR = [0, 0, 0] # [R, G, B] 0 - 255 (segment "body" color)
+ACCENT_COLOR = [200, 0, 0] # [R, G, B] 0 - 255 (segment "leader" color)
 FONT_FACE = 'consola.ttf'
-FONT_SIZE = 20 # does not change spacing
-SPACING_X = 14 # grid horizontal / column spacing
-SPACING_Y = 18 # grid vertical / row spacing
-TRANSITION_LENGTH = 10 # length of color transitions at beginning and end of segments, keep this <= SEGMENT_LENGTH_DEVIATION * 2!!!
-SEGMENT_LENGTH = 50 # typical character length for segments
-SEGMENT_LENGTH_DEVIATION = 30 # +/- limit for segment character length randomizer, keep <= SEGMENT_LENGTH / 2!!!
-SEGMENT_SEPARATION = 50 # typical distance separating segments in same column
-SEGMENT_SEPARATION_DEVIATION = 25 # +/- limit for separation randomizer, keep <= SEGMENT_SEPARATION / 2!!!
+FONT_SIZE = 20 # should be adjusted with spacing
+GRID_COLUMN_SPACING = 14 # grid column spacing
+GRID_ROW_SPACING = 18 # grid row spacing
+TRANSITION_LENGTH = 12 # length of segment color transitions, should be < 1/2 SEGMENT_LENGTH_MIN
+SEGMENT_LENGTH_MIN = 25 # upper limit for segment length randomization, should be > 2 * TRANSITION_LENGTH
+SEGMENT_LENGTH_MAX = 50 # upper limit for segment length randomization
+SEGMENT_SEPARATION_MIN = 10 # upper limit for separation randomization
+SEGMENT_SEPARATION_MAX = 50 # lower limit for separation randomization
+
