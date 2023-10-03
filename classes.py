@@ -1,6 +1,6 @@
 # classes.py
 
-import random, math
+import random, math, os
 from PIL import ImageFont, Image, ImageDraw
 from config import *
 
@@ -13,10 +13,10 @@ def define_segment():
             min_length = SEGMENT_LENGTH_MIN,
             max_length = SEGMENT_LENGTH_MAX,
             primary_color = BASE_COLOR,
-            secondary_color = ACCENT_COLOR
+            secondary_color = ACCENT_COLOR,
+            background_color = BACKGROUND_COLOR
         )
         return segment
-
 
 #-------------------------------------------------------------------------------------------------------
 class Grid:
@@ -39,12 +39,13 @@ class Grid:
 
 #-------------------------------------------------------------------------------------------------------
 class CharacterSegment:
-    def __init__(self, seed_string: str, randomize_string: bool, transition_length: int, min_length: int, max_length: int, primary_color: list, secondary_color: list):
+    def __init__(self, seed_string: str, randomize_string: bool, transition_length: int, min_length: int, max_length: int, primary_color: list, secondary_color: list, background_color: list):
         self.seed_string = seed_string # character types segment can contain
         self.randomize_string = randomize_string # if new_character() will randomize seed string
         self.transition_length = transition_length # number of transitionally colored characters
         self.color_a = primary_color # leading character color
         self.color_b = secondary_color # body characters color
+        self.bg_color = background_color # color of surface segment is rendered on
         self.length = random.randint(min_length, max_length) # total simultaneous characters allowed in segment
         self.column_id: int = None # column number of leading character
         self.row_id: int = None # row number of leading character
@@ -56,15 +57,16 @@ class CharacterSegment:
     def new_character(self):
         # if segment not already at full length, add character
         if len(self.characters) < self.length:
-            # if randomize source, reference source string using random as index
+            # if randomize seed string, reference source string using random as index
             if self.randomize_string is True:
-                seed_string_length = len(self.seed_string)
-                random_index = random.randint(0, seed_string_length - 1)
+                random_index = random.randint(0, len(self.seed_string) - 1)
                 new_character = self.seed_string[random_index]
-            # if not randomize source, reference source string using seed_character_index counter
+            # if not randomize seed string, reference source string using seed_character_index counter
             else:
                 new_character = self.seed_string[self.seed_character_index]
-                self.seed_character_index = self.seed_character_index + 1
+                self.seed_character_index += 1
+                if self.seed_character_index >= len(self.seed_string):
+                    self.seed_character_index = 0
             # add the new character to the segment characters list
             self.characters.append(new_character)
 
@@ -74,8 +76,8 @@ class CharacterSegment:
             self.character_colors.append((self.color_a[0], self.color_a[1], self.color_a[2]))
         # re-populate with transitional colors at either end of list
         # track the transitional rgb starting with the first color to be set on either end of list / stack
-        rgb_bottom = [self.color_b[0], self.color_b[1], self.color_b[2]] # had issues here when passing config list 1:1
-        rgb_top = [BACKGROUND_COLOR[0], BACKGROUND_COLOR[1], BACKGROUND_COLOR[2]]  # should be set background color
+        rgb_bottom = [self.color_b[0], self.color_b[1], self.color_b[2]] # had issues here when passing lists 1:1
+        rgb_top = [self.bg_color[0], self.bg_color[1], self.bg_color[2]]
         # loop for number of transitional characters defined in config
         for character in range(self.transition_length):
             character_inv = (character + 1) * -1 # +1 and invert for colors list top down index
@@ -86,7 +88,7 @@ class CharacterSegment:
                 change_delta_bottom = round(value_delta_bottom / self.transition_length)
                 rgb_bottom[value] = rgb_bottom[value] + change_delta_bottom
                 # top of stack down
-                value_delta_top = self.color_a[value] - BACKGROUND_COLOR[value] # should be set background color
+                value_delta_top = self.color_a[value] - self.bg_color[value]
                 change_delta_top = round(value_delta_top / self.transition_length)
                 rgb_top[value] = rgb_top[value] + change_delta_top
             # set the character color list items to the new rgb values

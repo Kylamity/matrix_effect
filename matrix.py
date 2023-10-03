@@ -24,6 +24,26 @@ segmentHandler: object = SegmentHandler(
 )
 
 
+def sanitize_config():
+    rejections: str = []
+
+    if TRANSITION_LENGTH * 2 >= SEGMENT_LENGTH_MIN:
+        rejections.append("TRANSITION_LENGTH must be less than half of SEGMENT_LENGTH_MIN")
+    if SEGMENT_LENGTH_MIN > SEGMENT_LENGTH_MAX:
+        rejections.append("SEGMENT_LENGTH_MIN must be less than SEGMENT_LENGTH_MAX")
+    if SEGMENT_SEPARATION_MIN > SEGMENT_SEPARATION_MAX:
+        rejections.append("SEGMENT_SEPARATION_MIN must be less than SEGMENT_SEPARATION_MAX")
+
+    rejection_count = len(rejections)
+    if rejection_count:
+        print("\nConfig Error:")
+        for rejection in range(rejection_count):
+            print(f"    {rejections[rejection]}")
+        return False
+
+    return True
+
+
 def render_segments():
     for segment in range(len(segmentHandler.segment_pool)):
         print_row = segmentHandler.segment_pool[segment].row_id
@@ -39,6 +59,9 @@ def render_segments():
 
 
 def main():
+    if not sanitize_config():
+        return None
+
     if PRE_ITERATE:
         timestamp = time.time()
         print(f"Processing {PRE_ITERATE} pre-iterations...")
