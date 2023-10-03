@@ -9,7 +9,8 @@ renderer: object = Renderer(
     image_height = IMAGE_HEIGHT,
     font_face = FONT_FACE,
     font_size = FONT_SIZE,
-    background_color = BACKGROUND_COLOR
+    background_color = BACKGROUND_COLOR,
+    output_dir = OUTPUT_DIR
 )
 grid: object = Grid(
     canvas_width = IMAGE_WIDTH,
@@ -75,7 +76,7 @@ def main():
     if SAVE_ALL:
         print(f"Processing {OUTPUT_ITERATIONS} output iterations...")
     else:
-        print(f"Processing to output iteration {OUTPUT_ITERATIONS}")
+        print(f"Processing until output iteration {OUTPUT_ITERATIONS} is reached")
     for output_iteration in range(OUTPUT_ITERATIONS):
         iteration_actual = output_iteration + 1
         segmentHandler.iterate()
@@ -83,7 +84,7 @@ def main():
             render_segments()
             renderer.save_image(f'{IMAGE_NAME}_{iteration_actual}_{IMAGE_WIDTH}x{IMAGE_HEIGHT}')
             renderer.new_image()
-            print(f"Iteration {iteration_actual} saved")
+            print(f"Iteration {iteration_actual} of {OUTPUT_ITERATIONS} saved")
 
     duration = round(time.time() - timestamp, 1)
     print(f"Completed in {duration} sec, Exiting.")

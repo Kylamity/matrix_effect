@@ -83,27 +83,30 @@ class CharacterSegment:
             character_inv = (character + 1) * -1 # +1 and invert for colors list top down index
             # loop for r, g, b values
             for value in range(3):
-                # bottom of stack up
-                value_delta_bottom = self.color_a[value] - self.color_b[value]
-                change_delta_bottom = round(value_delta_bottom / self.transition_length)
-                rgb_bottom[value] = rgb_bottom[value] + change_delta_bottom
+                # bottom of stack up, don't apply on first loop cycle
+                if character > 0:
+                    value_delta_bottom = self.color_a[value] - self.color_b[value]
+                    change_delta_bottom = round(value_delta_bottom / (self.transition_length - 1)) # -1 to correct change delta for skipping first loop cycle
+                    rgb_bottom[value] += change_delta_bottom
                 # top of stack down
                 value_delta_top = self.color_a[value] - self.bg_color[value]
                 change_delta_top = round(value_delta_top / self.transition_length)
-                rgb_top[value] = rgb_top[value] + change_delta_top
+                rgb_top[value] += change_delta_top
             # set the character color list items to the new rgb values
             self.character_colors[character] = (rgb_bottom[0], rgb_bottom[1], rgb_bottom[2])
             self.character_colors[character_inv] = (rgb_top[0], rgb_top[1], rgb_top[2])
 
 #-------------------------------------------------------------------------------------------------------
 class Renderer:
-    def __init__(self, image_width: int, image_height: int, font_face: str, font_size: int, background_color: list):
+    def __init__(self, image_width: int, image_height: int, font_face: str, font_size: int, background_color: list, output_dir: str):
         self.image_width = image_width # output image canvas width
         self.image_height = image_height # output image canvas height
         self.bg_color = (background_color[0], background_color[1], background_color[2], ) # output image background fill color (rgb)
+        self.output_dir = output_dir
         self.font: object = ImageFont.truetype(font_face, font_size) # stores font data
         self.image: object = None # stores image data
         self.draw: object = None
+        self.check_output_dir()
         self.new_image()
 
     def new_image(self):
@@ -117,9 +120,12 @@ class Renderer:
 
     def save_image(self, file_name: str):
         # set path and save image data to file as png
-        file_extension = "png"
-        save_path = f"{file_name}.{file_extension}"
+        save_path = os.path.join(self.output_dir, f"{file_name}.png")
         self.image.save(save_path)
+
+    def check_output_dir(self):
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
 
 #-------------------------------------------------------------------------------------------------------
 class SegmentHandler:
