@@ -1,6 +1,6 @@
 # classes.py
 
-import random, math, os
+import random, math
 from PIL import ImageFont, Image, ImageDraw
 from config import *
 
@@ -98,15 +98,13 @@ class CharacterSegment:
 
 #-------------------------------------------------------------------------------------------------------
 class Renderer:
-    def __init__(self, image_width: int, image_height: int, font_face: str, font_size: int, background_color: list, output_dir: str):
+    def __init__(self, image_width: int, image_height: int, font_face: str, font_size: int, background_color: list):
         self.image_width = image_width # output image canvas width
         self.image_height = image_height # output image canvas height
         self.bg_color = (background_color[0], background_color[1], background_color[2], ) # output image background fill color (rgb)
-        self.output_dir = output_dir
         self.font: object = ImageFont.truetype(font_face, font_size) # stores font data
         self.image: object = None # stores image data
         self.draw: object = None
-        self.check_output_dir()
         self.new_image()
 
     def new_image(self):
@@ -118,14 +116,10 @@ class Renderer:
         # render text at pixel x,y coords
         self.draw.text((pixel_x, pixel_y), character, fill = color, font = self.font)
 
-    def save_image(self, file_name: str):
+    def save_image(self, file_path: str):
         # set path and save image data to file as png
-        save_path = os.path.join(self.output_dir, f"{file_name}.png")
-        self.image.save(save_path)
-
-    def check_output_dir(self):
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
+        ext_path = f'{file_path}.png'
+        self.image.save(ext_path)
 
 #-------------------------------------------------------------------------------------------------------
 class SegmentHandler:
@@ -136,7 +130,6 @@ class SegmentHandler:
         self.min_separation = min_separation
         self.max_separation = max_separation
         self.column_speeds: int = []
-        self.init_spawn_states()
         self.set_column_speeds()
 
     def set_column_speeds(self):
@@ -145,22 +138,24 @@ class SegmentHandler:
             # set 3 speed levels from random range 1-3
             self.column_speeds.append(random.randint(1, 3))
 
-    def init_spawn_states(self):
-        # for each column, add an item to list with value True
-        for column in range(self.grid.total_columns):
-            self.column_spawn_states.append(True)
-
     def iterate(self):
         # method called in main loop
+        self.init_spawn_states()
         self.check_spawns()
         self.spawn_segments()
         self.cycle_segments()
         self.cleanup_segments()
 
+    def init_spawn_states(self):
+        # for each column, add or set list item True
+        if len(self.column_spawn_states):
+            for column in range(self.grid.total_columns):
+                self.column_spawn_states[column] = True
+        else:
+            for column in range(self.grid.total_columns):
+                self.column_spawn_states.append(True)
+
     def check_spawns(self):
-        # set all spawn states true
-        for column in range(len(self.column_spawn_states)):
-            self.column_spawn_states[column] = True
         # cycle through segments in pool, if segment length + lead character is not far enough from row 0, set column spawn state false
         for segment in range(len(self.segment_pool)):
             clearance = self.segment_pool[segment].length + self.segment_pool[segment].separation

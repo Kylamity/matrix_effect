@@ -1,6 +1,6 @@
 # matrix.py
 
-import time
+import time, os
 from classes import *
 from config import *
 
@@ -9,8 +9,7 @@ renderer: object = Renderer(
     image_height = IMAGE_HEIGHT,
     font_face = FONT_FACE,
     font_size = FONT_SIZE,
-    background_color = BACKGROUND_COLOR,
-    output_dir = OUTPUT_DIR
+    background_color = BACKGROUND_COLOR
 )
 grid: object = Grid(
     canvas_width = IMAGE_WIDTH,
@@ -60,34 +59,45 @@ def render_segments():
 
 
 def main():
+    # check config globals are compatible
     if not sanitize_config():
         return None
 
+    # if output dir doesn't exist, create
+    if not os.path.exists(OUTPUT_DIR):
+            os.makedirs(OUTPUT_DIR)
+
+    timestamp = time.time()
+
+    # perform pre-iteration cycles
     if PRE_ITERATE:
-        timestamp = time.time()
         print(f"Processing {PRE_ITERATE} pre-iterations...")
         for pre_iteration in range(PRE_ITERATE):
             segmentHandler.iterate()
-
         duration = round(time.time() - timestamp, 1)
         print(f"Completed in {duration} sec")
+        timestamp = time.time()
 
-    timestamp = time.time()
+    # perform output iteration cycles
     if SAVE_ALL:
         print(f"Processing {OUTPUT_ITERATIONS} output iterations...")
-    else:
-        print(f"Processing until output iteration {OUTPUT_ITERATIONS} is reached")
     for output_iteration in range(OUTPUT_ITERATIONS):
         iteration_actual = output_iteration + 1
         segmentHandler.iterate()
-        if SAVE_ALL or iteration_actual == OUTPUT_ITERATIONS:
-            render_segments()
-            renderer.save_image(f'{IMAGE_NAME}_{iteration_actual}_{IMAGE_WIDTH}x{IMAGE_HEIGHT}')
-            renderer.new_image()
+        render_segments()
+        full_image_name = f"{IMAGE_NAME}_{iteration_actual}_{IMAGE_WIDTH}x{IMAGE_HEIGHT}"
+        save_path = os.path.join(OUTPUT_DIR, full_image_name)
+        renderer.save_image(save_path)
+        renderer.new_image()
+        # single / sequence output mode logic
+        if SAVE_ALL:
             print(f"Iteration {iteration_actual} of {OUTPUT_ITERATIONS} saved")
+        else:
+            print(f"Iteration saved")
+            break
 
     duration = round(time.time() - timestamp, 1)
-    print(f"Completed in {duration} sec, Exiting.")
+    print(f"\nCompleted in {duration} sec, Exiting.")
 
 
 if __name__ == '__main__':
