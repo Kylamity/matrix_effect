@@ -1,6 +1,6 @@
 # matrix.py
 
-import time, os
+import os, time
 from classes import *
 from config import *
 
@@ -11,12 +11,14 @@ renderer: object = Renderer(
     font_size = FONT_SIZE,
     background_color = BACKGROUND_COLOR
 )
+
 grid: object = Grid(
     canvas_width = IMAGE_WIDTH,
     canvas_height = IMAGE_HEIGHT,
     column_spacing = GRID_COLUMN_SPACING,
     row_spacing = GRID_ROW_SPACING
 )
+
 segmentHandler: object = SegmentHandler(
     grid_object = grid,
     min_separation = SEGMENT_SEPARATION_MIN,
@@ -44,13 +46,14 @@ def sanitize_config():
     return True
 
 
-def render_segments():
+def render_segments(is_alpha_mask = False):
     for segment in range(len(segmentHandler.segment_pool)):
         print_row = segmentHandler.segment_pool[segment].row_id
         for char in range(len(segmentHandler.segment_pool[segment].characters)):
+            c = (char + 1) * -1
             if print_row in range(grid.total_rows):
                 renderer.draw_character(
-                    character = segmentHandler.segment_pool[segment].characters[char],
+                    character = segmentHandler.segment_pool[segment].characters[c],
                     pixel_x = grid.column_coords[segmentHandler.segment_pool[segment].column_id],
                     pixel_y = grid.row_coords[print_row],
                     color = segmentHandler.segment_pool[segment].character_colors[char]
@@ -79,8 +82,7 @@ def main():
         timestamp = time.time()
 
     # perform output iteration cycles
-    if SAVE_ALL:
-        print(f"Processing {OUTPUT_ITERATIONS} output iterations...")
+    print(f"Processing output iterations...")
     for output_iteration in range(OUTPUT_ITERATIONS):
         iteration_actual = output_iteration + 1
         segmentHandler.iterate()
@@ -97,7 +99,8 @@ def main():
             break
 
     duration = round(time.time() - timestamp, 1)
-    print(f"\nCompleted in {duration} sec, Exiting.")
+    print(f"Completed in {duration} sec")
+    print("\nExiting")
 
 
 if __name__ == '__main__':

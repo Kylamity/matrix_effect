@@ -4,7 +4,6 @@ import random, math
 from PIL import ImageFont, Image, ImageDraw
 from config import *
 
-
 def define_segment():
         segment: object = CharacterSegment(
             seed_string = SEED_STRING,
@@ -23,8 +22,8 @@ class Grid:
     def __init__(self, canvas_width: int, canvas_height: int, column_spacing: int, row_spacing: int):
         self.total_columns: int = None # total columns in grid
         self.total_rows: int = None # total rows in grid
-        self.column_coords: int = [] # pixel coordinates for each column
-        self.row_coords: int = [] # pixel coordinates for each row
+        self.column_coords: list[int] = [] # pixel coordinates for each column
+        self.row_coords: list[int] = [] # pixel coordinates for each row
         self.init_grid_values(canvas_width, canvas_height, column_spacing, row_spacing)
 
     def init_grid_values(self, canvas_width, canvas_height, column_spacing, row_spacing):
@@ -39,7 +38,7 @@ class Grid:
 
 #-------------------------------------------------------------------------------------------------------
 class CharacterSegment:
-    def __init__(self, seed_string: str, randomize_string: bool, transition_length: int, min_length: int, max_length: int, primary_color: list, secondary_color: list, background_color: list):
+    def __init__(self, seed_string: str, randomize_string: bool, transition_length: int, min_length: int, max_length: int, primary_color: list[int], secondary_color: list[int], background_color: list[int]):
         self.seed_string = seed_string # character types segment can contain
         self.randomize_string = randomize_string # if new_character() will randomize seed string
         self.transition_length = transition_length # number of transitionally colored characters
@@ -49,26 +48,27 @@ class CharacterSegment:
         self.length = random.randint(min_length, max_length) # total simultaneous characters allowed in segment
         self.column_id: int = None # column number of leading character
         self.row_id: int = None # row number of leading character
-        self.characters: str = [] # characters segment currently contains ([0] = oldest character)
-        self.character_colors: str = [] # colors of characters in characters list
+        self.characters: list[str] = [] # characters segment currently contains ([0] = oldest character)
+        self.character_colors: list[int] = [] # colors of characters in characters list
         self.seed_character_index = 0 # tracks current position in seed_string when seed not randomized
         self.set_colors()
 
     def new_character(self):
-        # if segment not already at full length, add character
-        if len(self.characters) < self.length:
-            # if randomize seed string, reference source string using random as index
-            if self.randomize_string is True:
-                random_index = random.randint(0, len(self.seed_string) - 1)
-                new_character = self.seed_string[random_index]
-            # if not randomize seed string, reference source string using seed_character_index counter
-            else:
-                new_character = self.seed_string[self.seed_character_index]
-                self.seed_character_index += 1
-                if self.seed_character_index >= len(self.seed_string):
-                    self.seed_character_index = 0
-            # add the new character to the segment characters list
-            self.characters.append(new_character)
+        index = 0
+        # if randomize seed string, reference source string using random as index
+        if self.randomize_string is True:
+            index = random.randint(0, len(self.seed_string) - 1)
+        # if not randomize seed string, reference source string using seed_character_index counter
+        else:
+            index = self.seed_character_index
+            self.seed_character_index += 1
+            if self.seed_character_index >= len(self.seed_string):
+                self.seed_character_index = 0
+        # add the new character to the segment characters list
+        new_character = self.seed_string[index]
+        self.characters.append(new_character)
+        if len(self.characters) > self.length:
+            self.characters.pop(0)
 
     def set_colors(self):
         # populate colors list with color a
@@ -83,11 +83,10 @@ class CharacterSegment:
             character_inv = (character + 1) * -1 # +1 and invert for colors list top down index
             # loop for r, g, b values
             for value in range(3):
-                # bottom of stack up, don't apply on first loop cycle
-                if character > 0:
-                    value_delta_bottom = self.color_a[value] - self.color_b[value]
-                    change_delta_bottom = round(value_delta_bottom / (self.transition_length - 1)) # -1 to correct change delta for skipping first loop cycle
-                    rgb_bottom[value] += change_delta_bottom
+                # bottom of stack up
+                value_delta_bottom = self.color_a[value] - self.color_b[value]
+                change_delta_bottom = round(value_delta_bottom / (self.transition_length))
+                rgb_bottom[value] += change_delta_bottom
                 # top of stack down
                 value_delta_top = self.color_a[value] - self.bg_color[value]
                 change_delta_top = round(value_delta_top / self.transition_length)
@@ -95,10 +94,12 @@ class CharacterSegment:
             # set the character color list items to the new rgb values
             self.character_colors[character] = (rgb_bottom[0], rgb_bottom[1], rgb_bottom[2])
             self.character_colors[character_inv] = (rgb_top[0], rgb_top[1], rgb_top[2])
+        # re-apply leading character color at full value
+        self.character_colors[0] = (self.color_b[0], self.color_b[1], self.color_b[2])
 
 #-------------------------------------------------------------------------------------------------------
 class Renderer:
-    def __init__(self, image_width: int, image_height: int, font_face: str, font_size: int, background_color: list):
+    def __init__(self, image_width: int, image_height: int, font_face: str, font_size: int, background_color: list[int]):
         self.image_width = image_width # output image canvas width
         self.image_height = image_height # output image canvas height
         self.bg_color = (background_color[0], background_color[1], background_color[2], ) # output image background fill color (rgb)
@@ -133,10 +134,15 @@ class SegmentHandler:
         self.set_column_speeds()
 
     def set_column_speeds(self):
-        # loop for columns in grid
+        # loop for number of columns in grid, set random speed value from range 1-3
+        last_speed = None
         for column in range(self.grid.total_columns):
-            # set 3 speed levels from random range 1-3
-            self.column_speeds.append(random.randint(1, 3))
+            random_speed = random.randint(1, 3)
+            while random_speed == last_speed:
+                random_speed = random.randint(1, 3)
+            else:
+                self.column_speeds.append(random_speed)
+            last_speed = random_speed
 
     def iterate(self):
         # method called in main loop
@@ -177,12 +183,15 @@ class SegmentHandler:
     def cycle_segments(self):
         # loop for segments in pool, call new character and move segment row id + 1
         for segment in range(len(self.segment_pool)):
-            for cycle in range(self.column_speeds[self.segment_pool[segment].column_id]):
+            for column in range(self.column_speeds[self.segment_pool[segment].column_id]):
                 self.segment_pool[segment].new_character()
                 self.segment_pool[segment].row_id += 1
 
     def cleanup_segments(self):
         # for segments in pool, if lead character row + length > total grid rows, remove from pool
+        cull_segments = []
         for segment in range(len(self.segment_pool)):
             if (self.grid.total_rows - self.segment_pool[segment].length) > self.grid.total_rows:
-                self.segment_pool.pop(segment)
+                cull_segments.append(segment)
+        for segment in range(len(cull_segments)):
+            self.segment_pool.pop(segment)
