@@ -19,8 +19,16 @@ grid: object = Grid(
     row_spacing = GRID_ROW_SPACING
 )
 
-segmentHandler: object = SegmentHandler(
+segmentRGB: object = CharacterSegmentRGB(
+    main_color = BASE_COLOR,
+    leader_color = ACCENT_COLOR,
+    background_color = BACKGROUND_COLOR,
+    min_transition_length = TRANSITION_LENGTH_MIN
+)
+
+segmentHandler: object = CharacterSegmentHandler(
     grid_object = grid,
+    segment_rgb_object = segmentRGB,
     min_separation = SEGMENT_SEPARATION_MIN,
     max_separation = SEGMENT_SEPARATION_MAX
 )
@@ -28,9 +36,9 @@ segmentHandler: object = SegmentHandler(
 
 def sanitize_config():
     rejections: str = []
-
-    if TRANSITION_LENGTH * 2 >= SEGMENT_LENGTH_MIN:
-        rejections.append("TRANSITION_LENGTH must be less than half of SEGMENT_LENGTH_MIN")
+    transition_length_limit = round((SEGMENT_LENGTH_MIN / 2) / 3)
+    if TRANSITION_LENGTH_MIN > transition_length_limit:
+        rejections.append(f"TRANSITION_LENGTH must be less than or equal to {transition_length_limit} (based on SEGMENT_LENGTH_MIN)")
     if SEGMENT_LENGTH_MIN > SEGMENT_LENGTH_MAX:
         rejections.append("SEGMENT_LENGTH_MIN must be less than SEGMENT_LENGTH_MAX")
     if SEGMENT_SEPARATION_MIN > SEGMENT_SEPARATION_MAX:
@@ -46,7 +54,7 @@ def sanitize_config():
     return True
 
 
-def render_segments(is_alpha_mask = False):
+def render_segments():
     for segment in range(len(segmentHandler.segment_pool)):
         print_row = segmentHandler.segment_pool[segment].row_id
         for char in range(len(segmentHandler.segment_pool[segment].characters)):
