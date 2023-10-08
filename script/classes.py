@@ -8,12 +8,9 @@ def define_segment():
         segment: object = CharacterSegment(
             seed_string = SEED_STRING,
             randomize_string = RANDOMIZE_STRING,
-            transition_length = TRANSITION_LENGTH,
+            transition_length = TRANSITION_LENGTH_MIN,
             min_length = SEGMENT_LENGTH_MIN,
-            max_length = SEGMENT_LENGTH_MAX,
-            primary_color = BASE_COLOR,
-            secondary_color = ACCENT_COLOR,
-            background_color = BACKGROUND_COLOR
+            max_length = SEGMENT_LENGTH_MAX
         )
         return segment
 
@@ -38,31 +35,28 @@ class Grid:
 
 #-------------------------------------------------------------------------------------------------------
 class CharacterSegment:
-    def __init__(self, seed_string: str, randomize_string: bool, transition_length: int, min_length: int, max_length: int, primary_color: list[int], secondary_color: list[int], background_color: list[int]):
+    def __init__(self, seed_string: str, randomize_string: bool, transition_length: int, min_length: int, max_length: int):
         self.seed_string = seed_string # character types segment can contain
         self.randomize_string = randomize_string # if new_character() will randomize seed string
         self.transition_length = transition_length # number of transitionally colored characters
-        self.color_a = primary_color # leading character color
-        self.color_b = secondary_color # body characters color
-        self.bg_color = background_color # color of surface segment is rendered on
         self.length = random.randint(min_length, max_length) # total simultaneous characters allowed in segment
         self.column_id: int = None # column number of leading character
         self.row_id: int = None # row number of leading character
         self.characters: list[str] = [] # characters segment currently contains ([0] = oldest character)
         self.character_colors: list[int] = [] # colors of characters in characters list
-        self.seed_character_index = 0 # tracks current position in seed_string when seed not randomized
-        self.set_colors()
+        self.seed_character_index = random.randint(0, (len(self.seed_string) - 1)) # tracks current position in seed_string when seed not randomized
+        self.speed = 1 # set by handler at spawn
 
     def new_character(self):
-        index = 0
+        seed_length = len(self.seed_string)
         # if randomize seed string, reference source string using random as index
         if self.randomize_string is True:
-            index = random.randint(0, len(self.seed_string) - 1)
+            index = random.randint(0, seed_length - 1)
         # if not randomize seed string, reference source string using seed_character_index counter
         else:
             index = self.seed_character_index
             self.seed_character_index += 1
-            if self.seed_character_index >= len(self.seed_string):
+            if self.seed_character_index >= seed_length:
                 self.seed_character_index = 0
         # add the new character to the segment characters list
         new_character = self.seed_string[index]
@@ -70,32 +64,43 @@ class CharacterSegment:
         if len(self.characters) > self.length:
             self.characters.pop(0)
 
-    def set_colors(self):
-        # populate colors list with color a
-        for character in range(self.length):
-            self.character_colors.append((self.color_a[0], self.color_a[1], self.color_a[2]))
-        # re-populate with transitional colors at either end of list
-        # track the transitional rgb starting with the first color to be set on either end of list / stack
-        rgb_bottom = [self.color_b[0], self.color_b[1], self.color_b[2]] # had issues here when passing lists 1:1
+#-------------------------------------------------------------------------------------------------------
+class CharacterSegmentRGB:
+    def __init__(self, main_color: list[int], leader_color: list[int], background_color: list[int], min_transition_length: int):
+        self.color_a = main_color
+        self.color_b = leader_color
+        self.bg_color = background_color
+        self.min_trans_length = min_transition_length
+
+    def make_rgb_list(self, segment_length: int, segment_speed_mult: int):
+        rgb_colors_list: list[int] = []
+        for character in range(segment_length):
+            rgb_colors_list.append((self.color_a[0], self.color_a[1], self.color_a[2]))
+        return self.set_transitional_colors(rgb_colors_list, segment_speed_mult)
+
+    def set_transitional_colors(self, rgb_colors_list, speed_mult):
+        rgb_colors_list = rgb_colors_list
         rgb_top = [self.bg_color[0], self.bg_color[1], self.bg_color[2]]
-        # loop for number of transitional characters defined in config
-        for character in range(self.transition_length):
-            character_inv = (character + 1) * -1 # +1 and invert for colors list top down index
-            # loop for r, g, b values
-            for value in range(3):
-                # bottom of stack up
-                value_delta_bottom = self.color_a[value] - self.color_b[value]
-                change_delta_bottom = round(value_delta_bottom / (self.transition_length))
-                rgb_bottom[value] += change_delta_bottom
-                # top of stack down
-                value_delta_top = self.color_a[value] - self.bg_color[value]
-                change_delta_top = round(value_delta_top / self.transition_length)
-                rgb_top[value] += change_delta_top
-            # set the character color list items to the new rgb values
-            self.character_colors[character] = (rgb_bottom[0], rgb_bottom[1], rgb_bottom[2])
-            self.character_colors[character_inv] = (rgb_top[0], rgb_top[1], rgb_top[2])
-        # re-apply leading character color at full value
-        self.character_colors[0] = (self.color_b[0], self.color_b[1], self.color_b[2])
+        rgb_bottom = [self.color_b[0], self.color_b[1], self.color_b[2]]
+        dyn_length = self.min_trans_length * speed_mult
+        transition_multi = 1 / dyn_length
+        for character in range(dyn_length):
+            character_inv = (character + 1) * -1 # +1 and invert to address list top down
+            rgb_bottom = self.blend_rgb_values(rgb_bottom, self.color_b, transition_multi)
+            rgb_top = self.blend_rgb_values(rgb_top, self.bg_color, transition_multi)
+            rgb_colors_list[character] = (rgb_bottom[0], rgb_bottom[1], rgb_bottom[2])
+            rgb_colors_list[character_inv] = (rgb_top[0], rgb_top[1], rgb_top[2])
+        rgb_colors_list[0] = (255, 255, 255)
+        return rgb_colors_list
+
+    def blend_rgb_values(self, rgb_1, rgb_2, transition_multi):
+        rgb_out = [rgb_1[0], rgb_1[1], rgb_1[2]]
+        # loop for r, g, b values
+        for value in range(3):
+            difference = self.color_a[value] - rgb_2[value]
+            change_delta = round(difference * transition_multi)
+            rgb_out[value] += change_delta
+        return [rgb_out[0], rgb_out[1], rgb_out[2]]
 
 #-------------------------------------------------------------------------------------------------------
 class Renderer:
@@ -123,9 +128,10 @@ class Renderer:
         self.image.save(ext_path)
 
 #-------------------------------------------------------------------------------------------------------
-class SegmentHandler:
-    def __init__(self, grid_object: object, min_separation: int, max_separation: int):
+class CharacterSegmentHandler:
+    def __init__(self, grid_object: object, segment_rgb_object: object, min_separation: int, max_separation: int):
         self.grid = grid_object
+        self.rgb_object = segment_rgb_object
         self.segment_pool: object = []
         self.column_spawn_states: bool = []
         self.min_separation = min_separation
@@ -178,6 +184,9 @@ class SegmentHandler:
                 new_segment.column_id = column
                 new_segment.row_id = -1 # cycle_segments will +1 before image output
                 new_segment.separation = random.randint(self.min_separation, self.max_separation)
+                new_segment.speed = self.column_speeds[column]
+                new_rgb_colors_list = self.rgb_object.make_rgb_list(new_segment.length, self.column_speeds[column])
+                new_segment.character_colors = new_rgb_colors_list
                 self.segment_pool.append(new_segment)
 
     def cycle_segments(self):
