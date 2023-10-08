@@ -90,7 +90,6 @@ class CharacterSegmentRGB:
             rgb_top = self.blend_rgb_values(rgb_top, self.bg_color, transition_multi)
             rgb_colors_list[character] = (rgb_bottom[0], rgb_bottom[1], rgb_bottom[2])
             rgb_colors_list[character_inv] = (rgb_top[0], rgb_top[1], rgb_top[2])
-        rgb_colors_list[0] = (255, 255, 255)
         return rgb_colors_list
 
     def blend_rgb_values(self, rgb_1, rgb_2, transition_multi):
