@@ -4,6 +4,7 @@ import random, math
 from PIL import ImageFont, Image, ImageDraw
 from config import *
 
+
 def define_segment():
         segment: object = CharacterSegment(
             seed_string = SEED_STRING,
@@ -32,6 +33,36 @@ class Grid:
             self.column_coords.append(column_spacing * column)
         for row in range(self.total_rows):
             self.row_coords.append(row_spacing * row)
+
+#-------------------------------------------------------------------------------------------------------
+class Renderer:
+    def __init__(self, image_width: int, image_height: int, font_face: str, font_size: int, background_color: list[int], alpha_enabled: bool):
+        self.image_width = image_width # output image canvas width
+        self.image_height = image_height # output image canvas height
+        self.bg_color = (background_color[0], background_color[1], background_color[2], background_color[3]) # output image background fill color (rgb)
+        self.font: object = ImageFont.truetype(font_face, font_size) # stores font data
+        self.image: object = None # stores image data
+        self.draw: object = None
+        self.alpha_enabled = alpha_enabled
+        self.new_image()
+
+    def new_image(self):
+        # over-write current image object data with background color
+        if self.alpha_enabled is True:
+            image_mode = 'RGBA'
+        else:
+            image_mode = 'RGB'
+        self.image = Image.new(image_mode, (self.image_width, self.image_height), self.bg_color)
+        self.draw = ImageDraw.Draw(self.image)
+
+    def draw_character(self, character: str, pixel_x: int, pixel_y: int, color: list[int]):
+        # render text at pixel x,y coords
+        self.draw.text((pixel_x, pixel_y), character, fill = color, font = self.font)
+
+    def save_image(self, file_path: str):
+        # set path and save image data to file as png
+        ext_path = f'{file_path}.png'
+        self.image.save(ext_path)
 
 #-------------------------------------------------------------------------------------------------------
 class CharacterSegment:
@@ -65,72 +96,59 @@ class CharacterSegment:
             self.characters.pop(0)
 
 #-------------------------------------------------------------------------------------------------------
-class CharacterSegmentRGB:
+class CharacterSegmentRGBA:
     def __init__(self, main_color: list[int], leader_color: list[int], background_color: list[int], min_transition_length: int):
         self.color_a = main_color
         self.color_b = leader_color
         self.bg_color = background_color
         self.min_trans_length = min_transition_length
 
-    def make_rgb_list(self, segment_length: int, segment_speed_mult: int):
-        rgb_colors_list: list[int] = []
+    def make_rgba_list(self, segment_length: int, segment_speed_mult: int):
+        # set transition lengths, grow lead trail for speed, trail transition as remainder of segment
+        lead_trans_length: int = self.min_trans_length * segment_speed_mult
+        trail_trans_length: int = segment_length - lead_trans_length
+        # set step multipliers, used to calc fraction of value deltas applied each character
+        lead_step_multiplier: float = 1 / lead_trans_length
+        trail_step_multiplier: float = 1 / trail_trans_length
+        # set total deltas (from color, to color)
+        lead_total_delta: list[int] = self.get_rgba_delta(self.color_b, self.color_a)
+        trail_total_delta: list[int] = self.get_rgba_delta(self.color_a, self.bg_color)
+        # init rgba list and first color, start first color as color b
+        rgba_list = []
+        rgba = [self.color_b[0], self.color_b[1], self.color_b[2], self.color_b[3]]
+        # loop for each character in segment, add rgba color to list
         for character in range(segment_length):
-            rgb_colors_list.append((self.color_a[0], self.color_a[1], self.color_a[2]))
-        return self.set_transitional_colors(rgb_colors_list, segment_speed_mult)
+            # lead transition color
+            if character <= lead_trans_length:
+                rgba = self.step_rgba(rgba, lead_total_delta, lead_step_multiplier)
+            # trail transition color
+            else:
+                rgba = self.step_rgba(rgba, trail_total_delta, trail_step_multiplier)
+            # add rgba color to rgba list
+            rgba_list.append((rgba[0], rgba[1], rgba[2], rgba[3]))
+        # re-apply leading character at full value for contrast
+        rgba_list[0] = (self.color_b[0], self.color_b[1], self.color_b[2], self.color_b[3])
+        return rgba_list
 
-    def set_transitional_colors(self, rgb_colors_list, speed_mult):
-        rgb_colors_list = rgb_colors_list
-        rgb_top = [self.bg_color[0], self.bg_color[1], self.bg_color[2]]
-        rgb_bottom = [self.color_b[0], self.color_b[1], self.color_b[2]]
-        dyn_length = self.min_trans_length * speed_mult
-        transition_multi = 1 / dyn_length
-        for character in range(dyn_length):
-            character_inv = (character + 1) * -1 # +1 and invert to address list top down
-            rgb_bottom = self.blend_rgb_values(rgb_bottom, self.color_b, transition_multi)
-            rgb_top = self.blend_rgb_values(rgb_top, self.bg_color, transition_multi)
-            rgb_colors_list[character] = (rgb_bottom[0], rgb_bottom[1], rgb_bottom[2])
-            rgb_colors_list[character_inv] = (rgb_top[0], rgb_top[1], rgb_top[2])
-        return rgb_colors_list
+    def get_rgba_delta(self, rgba_from, rgba_to):
+        # loop for r, g, b, a values, return difference of from - to as value deltas list
+        rgba_delta = [0, 0, 0, 0]
+        for value in range(len(rgba_delta)):
+            rgba_delta[value] = rgba_to[value] - rgba_from[value]
+        return rgba_delta
 
-    def blend_rgb_values(self, rgb_1, rgb_2, transition_multi):
-        rgb_out = [rgb_1[0], rgb_1[1], rgb_1[2]]
-        # loop for r, g, b values
-        for value in range(3):
-            difference = self.color_a[value] - rgb_2[value]
-            change_delta = round(difference * transition_multi)
-            rgb_out[value] += change_delta
-        return [rgb_out[0], rgb_out[1], rgb_out[2]]
-
-#-------------------------------------------------------------------------------------------------------
-class Renderer:
-    def __init__(self, image_width: int, image_height: int, font_face: str, font_size: int, background_color: list[int]):
-        self.image_width = image_width # output image canvas width
-        self.image_height = image_height # output image canvas height
-        self.bg_color = (background_color[0], background_color[1], background_color[2], ) # output image background fill color (rgb)
-        self.font: object = ImageFont.truetype(font_face, font_size) # stores font data
-        self.image: object = None # stores image data
-        self.draw: object = None
-        self.new_image()
-
-    def new_image(self):
-        # over-write current image object data with background color
-        self.image = Image.new('RGB', (self.image_width, self.image_height), self.bg_color)
-        self.draw = ImageDraw.Draw(self.image)
-
-    def draw_character(self, character: str, pixel_x: int, pixel_y: int, color: str):
-        # render text at pixel x,y coords
-        self.draw.text((pixel_x, pixel_y), character, fill = color, font = self.font)
-
-    def save_image(self, file_path: str):
-        # set path and save image data to file as png
-        ext_path = f'{file_path}.png'
-        self.image.save(ext_path)
+    def step_rgba(self, rgba_in, total_delta, step_mult):
+        # loop for r, g, b, a values, return rgba in + (total delta * step_mult) values list
+        rgba_out = rgba_in
+        for value in range(len(rgba_out)):
+            rgba_out[value] += math.floor(total_delta[value] * step_mult)
+        return rgba_out
 
 #-------------------------------------------------------------------------------------------------------
 class CharacterSegmentHandler:
-    def __init__(self, grid_object: object, segment_rgb_object: object, min_separation: int, max_separation: int):
+    def __init__(self, grid_object: object, segment_rgba_object: object, min_separation: int, max_separation: int):
         self.grid = grid_object
-        self.rgb_object = segment_rgb_object
+        self.rgba_object = segment_rgba_object
         self.segment_pool: object = []
         self.column_spawn_states: bool = []
         self.min_separation = min_separation
@@ -184,7 +202,7 @@ class CharacterSegmentHandler:
                 new_segment.row_id = -1 # cycle_segments will +1 before image output
                 new_segment.separation = random.randint(self.min_separation, self.max_separation)
                 new_segment.speed = self.column_speeds[column]
-                new_rgb_colors_list = self.rgb_object.make_rgb_list(new_segment.length, self.column_speeds[column])
+                new_rgb_colors_list = self.rgba_object.make_rgba_list(new_segment.length, self.column_speeds[column])
                 new_segment.character_colors = new_rgb_colors_list
                 self.segment_pool.append(new_segment)
 

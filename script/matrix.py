@@ -4,14 +4,6 @@ import os, time
 from classes import *
 from config import *
 
-renderer: object = Renderer(
-    image_width = IMAGE_WIDTH,
-    image_height = IMAGE_HEIGHT,
-    font_face = FONT_FACE,
-    font_size = FONT_SIZE,
-    background_color = BACKGROUND_COLOR
-)
-
 grid: object = Grid(
     canvas_width = IMAGE_WIDTH,
     canvas_height = IMAGE_HEIGHT,
@@ -19,7 +11,16 @@ grid: object = Grid(
     row_spacing = GRID_ROW_SPACING
 )
 
-segmentRGB: object = CharacterSegmentRGB(
+renderer: object = Renderer(
+    image_width = IMAGE_WIDTH,
+    image_height = IMAGE_HEIGHT,
+    font_face = FONT_FACE,
+    font_size = FONT_SIZE,
+    background_color = BACKGROUND_COLOR,
+    alpha_enabled = SAVE_ALPHA
+)
+
+segmentRGBA: object = CharacterSegmentRGBA(
     main_color = BASE_COLOR,
     leader_color = ACCENT_COLOR,
     background_color = BACKGROUND_COLOR,
@@ -28,7 +29,7 @@ segmentRGB: object = CharacterSegmentRGB(
 
 segmentHandler: object = CharacterSegmentHandler(
     grid_object = grid,
-    segment_rgb_object = segmentRGB,
+    segment_rgba_object = segmentRGBA,
     min_separation = SEGMENT_SEPARATION_MIN,
     max_separation = SEGMENT_SEPARATION_MAX
 )
